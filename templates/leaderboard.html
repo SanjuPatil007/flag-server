@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Leaderboard — {{ ctf_name }}{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+  <h2 class="fw-bold" style="color:var(--navy)">
+    <i class="bi bi-trophy-fill me-2" style="color:var(--gold)"></i>Leaderboard
+  </h2>
+  <p class="text-muted">{{ rows | length }} student{{ 's' if rows | length != 1 }} submitted</p>
+</div>
+
+{% if not rows %}
+<div class="card p-5 text-center text-muted">
+  <i class="bi bi-hourglass-split fs-1 mb-3"></i>
+  <p class="mb-0">No submissions yet. Be the first!</p>
+</div>
+{% else %}
+
+<!-- Top 3 podium -->
+{% if rows | length >= 3 %}
+<div class="row g-3 mb-4 justify-content-center">
+  <!-- 2nd -->
+  <div class="col-md-3 text-center">
+    <div class="card p-3 rank-2">
+      <div style="font-size:2rem">🥈</div>
+      <div class="fw-bold">{{ rows[1]['student_id'] }}</div>
+      <div class="fs-4 fw-bold" style="color:var(--navy)">{{ rows[1]['score'] }}</div>
+      <div class="text-muted small">/ {{ max_score }} pts</div>
+    </div>
+  </div>
+  <!-- 1st -->
+  <div class="col-md-4 text-center">
+    <div class="card p-4 rank-1" style="border:2px solid var(--gold) !important">
+      <div style="font-size:2.5rem">🥇</div>
+      <div class="fw-bold fs-5">{{ rows[0]['student_id'] }}</div>
+      <div class="big fw-bold" style="font-size:2.5rem;color:var(--navy)">{{ rows[0]['score'] }}</div>
+      <div class="text-muted small">/ {{ max_score }} pts</div>
+    </div>
+  </div>
+  <!-- 3rd -->
+  <div class="col-md-3 text-center">
+    <div class="card p-3 rank-3">
+      <div style="font-size:2rem">🥉</div>
+      <div class="fw-bold">{{ rows[2]['student_id'] }}</div>
+      <div class="fs-4 fw-bold" style="color:var(--navy)">{{ rows[2]['score'] }}</div>
+      <div class="text-muted small">/ {{ max_score }} pts</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Full table -->
+<div class="card p-4">
+  <table class="table table-hover mb-0">
+    <thead class="table-light">
+      <tr>
+        <th style="width:60px">Rank</th>
+        <th>Roll Number</th>
+        <th class="text-center">Score</th>
+        <th class="text-center">Progress</th>
+        <th class="text-end text-muted small">Submitted</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% set pct = (row['score'] / max_score * 100) | int %}
+      <tr {% if loop.index <= 3 %}class="rank-{{ loop.index }}"{% endif %}>
+        <td class="align-middle fw-bold text-center">
+          {% if loop.index == 1 %}🥇
+          {% elif loop.index == 2 %}🥈
+          {% elif loop.index == 3 %}🥉
+          {% else %}{{ loop.index }}{% endif %}
+        </td>
+        <td class="align-middle fw-semibold">{{ row['student_id'] }}</td>
+        <td class="align-middle text-center">
+          <span class="fw-bold" style="color:var(--navy)">{{ row['score'] }}</span>
+          <span class="text-muted small"> / {{ max_score }}</span>
+        </td>
+        <td class="align-middle" style="min-width:120px">
+          <div class="progress" style="height:8px">
+            <div class="progress-bar" role="progressbar"
+                 style="width:{{ pct }}%;background:var(--navy)"></div>
+          </div>
+        </td>
+        <td class="align-middle text-end text-muted small">
+          {{ row['submitted_at'][:16].replace('T',' ') if row['submitted_at'] else '—' }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="text-center mt-4">
+  <a href="/" class="btn btn-primary">
+    <i class="bi bi-flag me-1"></i>Submit Flags
+  </a>
+  <button onclick="location.reload()" class="btn btn-outline-secondary ms-2">
+    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+  </button>
+</div>
+{% endblock %}

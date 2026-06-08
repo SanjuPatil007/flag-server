@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Submit Flags — {{ ctf_name }}{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+  <h2 class="fw-bold" style="color:var(--navy)">
+    <i class="bi bi-flag-fill me-2" style="color:var(--gold)"></i>Flag Submission
+  </h2>
+  <p class="text-muted">Enter your roll number and paste each flag you found.<br>
+     Leave blank any challenge you did not solve.</p>
+</div>
+
+{% if not ctf_open %}
+<div class="alert alert-danger text-center fw-semibold">
+  <i class="bi bi-lock-fill me-2"></i>Submissions are closed.
+</div>
+{% else %}
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="POST" action="/submit" autocomplete="off">
+
+  <!-- Roll number -->
+  <div class="card p-4 mb-4">
+    <label class="form-label fw-semibold fs-5">
+      <i class="bi bi-person-badge me-2" style="color:var(--navy)"></i>Roll Number
+    </label>
+    <input type="text" name="student_id" class="form-control form-control-lg"
+           placeholder="e.g. SCL001" required autofocus
+           style="font-family:monospace;font-size:1.1rem">
+    <div class="form-text">Use the same ID that was given to you on your .env slip.</div>
+  </div>
+
+  <!-- Challenges -->
+  <div class="card p-4 mb-4">
+    <h5 class="fw-bold mb-3" style="color:var(--navy)">
+      <i class="bi bi-list-check me-2"></i>Challenges
+    </h5>
+    <table class="table mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width:40px">#</th>
+          <th>Challenge</th>
+          <th style="width:60px" class="text-center">Pts</th>
+          <th>Your Flag</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cid, name, pts in challenges %}
+        <tr>
+          <td class="text-muted align-middle">{{ loop.index }}</td>
+          <td class="align-middle fw-semibold">{{ name }}</td>
+          <td class="text-center align-middle">
+            <span class="badge rounded-pill text-bg-secondary">{{ pts }}</span>
+          </td>
+          <td>
+            <input type="text" name="{{ cid }}" class="form-control form-control-sm"
+                   placeholder="FLAG{{ '{' }}{{ cid }}_xxxxxxxx}"
+                   style="font-family:monospace;font-size:.85rem">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="d-grid">
+    <button type="submit" class="btn btn-primary btn-lg py-3 fw-semibold">
+      <i class="bi bi-send-check me-2"></i>Submit All Flags
+    </button>
+  </div>
+  <p class="text-center text-muted small mt-2">
+    You can resubmit — only your latest attempt is saved.
+  </p>
+
+</form>
+{% endif %}
+{% endblock %}

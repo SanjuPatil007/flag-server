@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: scalerbank-ctf
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2
+    envVars:
+      - key: SECRET_SALT
+        sync: false          # you enter this manually in Render dashboard (keeps it secret)
+      - key: CTF_NAME
+        value: ScalerBank CTF
+      - key: CTF_OPEN
+        value: "1"           # change to "0" to close submissions after the CTF
+      - key: DB_PATH
+        value: /tmp/scores.db
