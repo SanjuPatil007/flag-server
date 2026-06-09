@@ -1,13 +1,16 @@
-import hashlib, os, sqlite3
+import hashlib, os
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, g
+from flask import Flask, render_template, request, g
 
 app = Flask(__name__)
 
-SALT       = os.environ.get("SECRET_SALT", "")
-DB_PATH    = os.environ.get("DB_PATH", "scores.db")
-CTF_NAME   = os.environ.get("CTF_NAME", "ScalerBank CTF")
-CTF_OPEN   = os.environ.get("CTF_OPEN", "1")   # set to "0" to close submissions
+SALT         = os.environ.get("SECRET_SALT", "")
+CTF_NAME     = os.environ.get("CTF_NAME", "ScalerBank CTF")
+CTF_OPEN     = os.environ.get("CTF_OPEN", "1")
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+DB_PATH      = os.environ.get("DB_PATH", "scores.db")
+
+USE_PG = bool(DATABASE_URL)
 
 CHALLENGES = [
     ("vault",   "Vault Access",      5),
@@ -29,8 +32,13 @@ MAX_SCORE = sum(p for _, _, p in CHALLENGES)
 def get_db():
     db = getattr(g, "_db", None)
     if db is None:
-        db = g._db = sqlite3.connect(DB_PATH)
-        db.row_factory = sqlite3.Row
+        if USE_PG:
+            import psycopg2
+            db = g._db = psycopg2.connect(DATABASE_URL)
+        else:
+            import sqlite3
+            db = g._db = sqlite3.connect(DB_PATH)
+            db.row_factory = sqlite3.Row
     return db
 
 @app.teardown_appcontext
@@ -39,20 +47,59 @@ def close_db(_):
     if db:
         db.close()
 
+def db_execute(sql, params=()):
+    db = get_db()
+    if USE_PG:
+        cur = db.cursor()
+        cur.execute(sql.replace("?", "%s"), params)
+        db.commit()
+        cur.close()
+    else:
+        db.execute(sql, params)
+        db.commit()
+
+def db_fetchall(sql, params=()):
+    db = get_db()
+    if USE_PG:
+        import psycopg2.extras
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql.replace("?", "%s"), params)
+        rows = cur.fetchall()
+        cur.close()
+        return rows
+    else:
+        return db.execute(sql, params).fetchall()
+
 def init_db():
     with app.app_context():
-        db = get_db()
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS submissions (
-                id          INTEGER PRIMARY KEY,
-                student_id  TEXT    NOT NULL,
-                score       INTEGER NOT NULL DEFAULT 0,
-                detail      TEXT,
-                submitted_at TEXT
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_student ON submissions(student_id);
-        """)
-        db.commit()
+        if USE_PG:
+            db = get_db()
+            cur = db.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS submissions (
+                    id           SERIAL PRIMARY KEY,
+                    student_id   TEXT    NOT NULL UNIQUE,
+                    score        INTEGER NOT NULL DEFAULT 0,
+                    detail       TEXT,
+                    submitted_at TEXT
+                )
+            """)
+            db.commit()
+            cur.close()
+        else:
+            import sqlite3
+            db = get_db()
+            db.executescript("""
+                CREATE TABLE IF NOT EXISTS submissions (
+                    id          INTEGER PRIMARY KEY,
+                    student_id  TEXT    NOT NULL,
+                    score       INTEGER NOT NULL DEFAULT 0,
+                    detail      TEXT,
+                    submitted_at TEXT
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_student ON submissions(student_id);
+            """)
+            db.commit()
 
 
 # ── FLAG LOGIC ────────────────────────────────────────────────────────────────
@@ -102,11 +149,9 @@ def submit():
                                error="Roll number is required.")
 
     results, total = validate_submission(sid, request.form)
-
-    # Store / update — always takes the latest submission
     detail = ",".join(r["cid"] for r in results if r["correct"])
-    db = get_db()
-    db.execute("""
+
+    db_execute("""
         INSERT INTO submissions (student_id, score, detail, submitted_at)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(student_id) DO UPDATE SET
@@ -114,7 +159,6 @@ def submit():
             detail       = excluded.detail,
             submitted_at = excluded.submitted_at
     """, (sid, total, detail, datetime.now().isoformat()))
-    db.commit()
 
     return render_template("results.html",
                            sid=sid,
@@ -125,11 +169,11 @@ def submit():
 
 @app.route("/leaderboard")
 def leaderboard():
-    rows = get_db().execute("""
+    rows = db_fetchall("""
         SELECT student_id, score, submitted_at
         FROM   submissions
         ORDER  BY score DESC, submitted_at ASC
-    """).fetchall()
+    """)
     return render_template("leaderboard.html",
                            rows=rows,
                            max_score=MAX_SCORE,
