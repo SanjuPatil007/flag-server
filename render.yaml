@@ -13,3 +13,5 @@ services:
         value: "1"           # change to "0" to close submissions after the CTF
       - key: DATABASE_URL
         sync: false          # paste your Neon connection string here
+      - key: DB_PATH
+        value: /tmp/scores.db  # SQLite fallback until DATABASE_URL is set
