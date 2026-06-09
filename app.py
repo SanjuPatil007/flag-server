@@ -60,7 +60,10 @@ def db_execute(sql, params=()):
     db = get_db()
     if USE_PG:
         cur = db.cursor()
-        cur.execute(sql.replace("?", "%s"), list(params) if params else None)
+        if params:
+            cur.execute(sql.replace("?", "%s"), list(params))
+        else:
+            cur.execute(sql.replace("?", "%s"))
         db.commit()
         cur.close()
     else:
@@ -71,7 +74,10 @@ def db_fetchall(sql, params=()):
     db = get_db()
     if USE_PG:
         cur = db.cursor()
-        cur.execute(sql.replace("?", "%s"), list(params) if params else None)
+        if params:
+            cur.execute(sql.replace("?", "%s"), list(params))
+        else:
+            cur.execute(sql.replace("?", "%s"))
         cols = [d[0] for d in cur.description]
         rows = [dict(zip(cols, row)) for row in cur.fetchall()]
         cur.close()
