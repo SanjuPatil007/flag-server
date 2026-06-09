@@ -33,8 +33,17 @@ def get_db():
     db = getattr(g, "_db", None)
     if db is None:
         if USE_PG:
-            import psycopg2
-            db = g._db = psycopg2.connect(DATABASE_URL)
+            import pg8000.dbapi, ssl
+            from urllib.parse import urlparse
+            url = urlparse(DATABASE_URL)
+            db = g._db = pg8000.dbapi.connect(
+                host=url.hostname,
+                port=url.port or 5432,
+                database=url.path.lstrip('/'),
+                user=url.username,
+                password=url.password,
+                ssl_context=ssl.create_default_context()
+            )
         else:
             import sqlite3
             db = g._db = sqlite3.connect(DB_PATH)
@@ -51,7 +60,7 @@ def db_execute(sql, params=()):
     db = get_db()
     if USE_PG:
         cur = db.cursor()
-        cur.execute(sql.replace("?", "%s"), params)
+        cur.execute(sql.replace("?", "%s"), list(params) if params else None)
         db.commit()
         cur.close()
     else:
@@ -61,10 +70,10 @@ def db_execute(sql, params=()):
 def db_fetchall(sql, params=()):
     db = get_db()
     if USE_PG:
-        import psycopg2.extras
-        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(sql.replace("?", "%s"), params)
-        rows = cur.fetchall()
+        cur = db.cursor()
+        cur.execute(sql.replace("?", "%s"), list(params) if params else None)
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
         cur.close()
         return rows
     else:
